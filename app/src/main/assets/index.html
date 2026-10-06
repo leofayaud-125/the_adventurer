@@ -417,6 +417,8 @@ canvas{display:block;image-rendering:pixelated;}
 #tgt-btn:active{transform:scale(.92);}
 #tgt-btn.none{background:radial-gradient(circle at 35% 30%,#ffc2c2,#b83a3a 70%);border-color:rgba(255,205,205,.85);box-shadow:0 0 16px rgba(255,90,90,.5),0 4px 8px rgba(0,0,0,.5);}
 #minimap{top:calc(max(10px,env(safe-area-inset-top)) + 74px)!important;right:10px!important;}
+.spr-ic{width:30px;height:30px;image-rendering:pixelated;display:block;margin:auto;pointer-events:none;}
+.inv-cell .ic .spr-ic{width:28px;height:28px;}
 </style>
 </head>
 <body>
@@ -483,6 +485,18 @@ canvas{display:block;image-rendering:pixelated;}
         <option value="8">8px</option>
       </select>
     </div>
+    <div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:6px;font-size:11px;color:rgba(0,180,120,.7);">
+      <input id="edt-name" placeholder="Nom" maxlength="20" style="width:110px;background:rgba(4,14,22,.9);color:#9fe;border:1px solid rgba(0,180,120,.3);border-radius:6px;padding:5px;font-size:12px;">
+      <select id="edt-kind" onchange="edKindChange()" style="background:rgba(4,14,22,.9);color:rgba(0,220,150,.9);border:1px solid rgba(0,180,120,.3);border-radius:6px;padding:5px;font-size:12px;">
+        <option value="block">🧱 Bloc posable</option><option value="sword">🗡 Épée / arme</option><option value="pick">⛏ Pioche</option><option value="axe">🪓 Hache</option><option value="dig">🥄 Pelle</option><option value="hammer">🔨 Marteau</option><option value="item">✋ Objet tenu</option>
+      </select>
+      <span id="edt-pow-wrap" style="display:none;">Puissance <input type="number" id="edt-pow" value="6" min="1" max="20" style="width:50px;background:rgba(4,14,22,.9);color:#9fe;border:1px solid rgba(0,180,120,.3);border-radius:6px;padding:4px;font-size:12px;"></span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:6px;font-size:11px;color:rgba(0,180,120,.7);">
+      <span>Modèles :</span>
+      <button class="ip-btn" onclick="edTemplate('sword')" style="min-width:40px">🗡</button><button class="ip-btn" onclick="edTemplate('pick')" style="min-width:40px">⛏</button><button class="ip-btn" onclick="edTemplate('axe')" style="min-width:40px">🪓</button><button class="ip-btn" onclick="edTemplate('shovel')" style="min-width:40px">🥄</button><button class="ip-btn" onclick="edTemplate('hammer')" style="min-width:40px">🔨</button>
+    </div>
+    <div style="text-align:center;font-size:10px;color:rgba(0,180,120,.5);margin-bottom:6px;">Armes et outils : dessine la lame vers le haut-droite, la poignée en bas-gauche (16×16 conseillé).</div>
     <!-- Grille -->
     <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-bottom:6px;font-size:11px;color:rgba(0,180,120,.7);">
       <span>Grille:</span>
@@ -1456,7 +1470,7 @@ function renderAB(){
   for(let i=0;i<CFG.slots;i++){
     const k=AB[i],v=k?INV[k]:null;const sl=document.createElement('div');
     sl.className='ab-slot'+(i===activeSlot?' active':'');
-    if(v&&v.qty>0)sl.innerHTML=`${v.ic}<div class="qty">${v.qty}</div>`;
+    if(v&&v.qty>0)sl.innerHTML=`${icoHTML(v)}<div class="qty">${v.qty}</div>`;
     else{AB[i]=null;sl.innerHTML='<div class="hint">＋</div>';}
     const idx=i;sl.onclick=()=>{activeSlot=idx;renderAB();};bar.appendChild(sl);
   }
@@ -1470,7 +1484,7 @@ function renderInvBody(){
     const grid=document.createElement('div');grid.className='inv-grid';
     for(const[k,v] of Object.entries(INV)){
       const cell=document.createElement('div');cell.className='inv-cell'+(v.qty>0?' has':' empty');
-      cell.innerHTML=`<div class="ic">${v.ic}</div><div class="nm">${v.nm}</div>${v.qty>0?`<div class="qty">${v.qty}</div>`:''}`;
+      cell.innerHTML=`<div class="ic">${icoHTML(v)}</div><div class="nm">${v.nm}</div>${v.qty>0?`<div class="qty">${v.qty}</div>`:''}`;
       if(v.qty>0)cell.onclick=e=>openItemPop(k,e);grid.appendChild(cell);
     }
     body.appendChild(grid);
@@ -3228,7 +3242,7 @@ function attackEnemies(){
   const px2=player.x+player.w/2,py2=player.y+player.h/2;
   const toolK=AB[activeSlot];const toolV=toolK?INV[toolK]:null;
   let dmg=toolV?.tool==='sword'?4:toolV?.tool==='axe'?2:1;
-  if(toolK==='diamond_sword')dmg=8;else if(toolK==='iron_sword')dmg=5;
+  if(toolK==='diamond_sword')dmg=8;else if(toolK==='iron_sword')dmg=5;if(toolV&&toolV.dmg)dmg=toolV.dmg;
   let hit=false;
   for(const e of ENEMIES){
     if(!e.alive)continue;
@@ -3749,7 +3763,7 @@ function shadeC(col,amt){try{const h=n=>Math.max(0,Math.min(255,parseInt(col.sli
 
 // ══ ACTIONS ══
 let chopTarget=null,chopHits=0,chopTimer=0,actionCD=0;
-function getToolMul(){const k=AB[activeSlot];if(!k)return 1;const v=INV[k];if(!v)return 1;if(v.tool==='axe'||v.tool==='pick')return 2;return 1;}
+function getToolMul(){const k=AB[activeSlot];if(!k)return 1;const v=INV[k];if(!v)return 1;if(v.mul)return v.mul;if(v.tool==='axe'||v.tool==='pick')return 2;return 1;}
 function nearAction(){
   const px2=player.x+player.w/2,py2=player.y+player.h/2;
   const curItem=AB[activeSlot];
@@ -4229,7 +4243,7 @@ function drawOutlinedPlayer(px,py,swim,spr,anim){
   if(!SC.p){SC.p=document.createElement('canvas');}
   if(SC.p.width!==W3){SC.p.width=W3;SC.p.height=H3;}
   const c=SC.p.getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W3,H3);c.setTransform(S,0,0,S,PAD*S,PAD*S);
-  drawChar(c,0,0,swim,spr,anim);
+  drawChar(c,0,0,swim,spr,anim);drawHeld(c,swim,Math.round(Math.sin(anim*.2)*2.5));
   c.setTransform(1,0,0,1,0,0);c.globalCompositeOperation='source-atop';
   const g=c.createLinearGradient(0,PAD*S,0,(PAD+30)*S);g.addColorStop(0,'rgba(255,245,200,.12)');g.addColorStop(1,'rgba(0,0,40,.18)');c.fillStyle=g;c.fillRect(0,0,W3,H3);c.globalCompositeOperation='source-over';
   if(!LOW)edgeFx(c,SC.p,W3,H3,S*.5,'rgba(255,246,205,.34)','rgba(10,10,50,.22)');
@@ -4445,13 +4459,55 @@ addEventListener('orientationchange',()=>{setTimeout(fitScreen,100);setTimeout(f
 if(window.visualViewport)window.visualViewport.addEventListener('resize',fitScreen);
 setInterval(fitScreen,600);
 
+// ══ OBJETS EN MAIN ══
+const HMAT={wood:['#d8b074','#a87a44','#6e4a26'],stone:['#cfd3da','#8e939c','#5d626b'],iron:['#f4f7fb','#c3cbd7','#7d8696'],gold:['#fff3a8','#f2c230','#b8860b'],diamond:['#e0ffff','#5fe6f5','#2a9ab0']};
+const HHAND=['#8a5a2a','#b8793c','#5c3a1a'];
+const HKEY={sword:['sword','stone'],iron_sword:['sword','iron'],diamond_sword:['sword','diamond'],pickaxe:['pick','stone'],iron_pick:['pick','iron'],gold_pick:['pick','gold'],diamond_pick:['pick','diamond'],axe:['axe','stone'],shovel:['shovel','iron'],hammer:['hammer','iron']};
+const HBLK={stone_block:'#8e939c',wood_block:'#a87a44',brick_block:'#b04a3a',glass_block:'#a8d8f0',obsidian_block:'#2a1a3a',crystal_block:'#5fe6f5',sand_block:'#e0c878',ice_block:'#bfe8ff',snow_block:'#f4f8ff',lava_block:'#ff6a1a',jungle_block:'#3a8a3a',moss_block:'#5a8a3a',workbench:'#b8793c',furnace:'#6a6a72',chest:'#a86a2a',fence:'#9a7040',lantern:'#f2c230'};
+function mkSprite(fn){const c=document.createElement('canvas');c.width=c.height=16;const g=c.getContext('2d');fn(g,(x,y,col)=>{g.fillStyle=col;g.fillRect(x,y,1,1);});return c;}
+function pixCanvas(px,n){const c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d'),id=g.createImageData(n,n);for(let i=0;i<n*n;i++){const q=px[i]||[0,0,0,0];id.data[i*4]=q[0];id.data[i*4+1]=q[1];id.data[i*4+2]=q[2];id.data[i*4+3]=q[3];}g.putImageData(id,0,0);return c;}
+function hHandle(P){for(let i=0;i<10;i++){P(2+i,14-i,HHAND[0]);P(2+i,15-i,HHAND[2]);P(1+i,14-i,HHAND[1]);}}
+const HSHAPE={
+  sword:(g,P,m)=>{for(let i=0;i<9;i++){const x=6+i,y=9-i;P(x,y,m[1]);P(x-1,y,m[0]);P(x,y+1,m[2]);}P(15,0,m[0]);P(14,0,m[0]);P(15,1,m[1]);
+    for(let t=-2;t<=2;t++)P(5+t,10+t,t===0?'#f2c230':'#b8860b');P(4,11,HHAND[0]);P(3,12,HHAND[1]);P(2,13,HHAND[0]);P(1,14,HHAND[2]);P(0,15,'#f2c230');},
+  pick:(g,P,m)=>{hHandle(P);for(let t=0;t<9;t++){const x=7+t,y=1+t;P(x,y,m[1]);P(x+1,y,m[0]);P(x,y+1,m[2]);}P(7,2,m[2]);P(15,9,m[2]);},
+  axe:(g,P,m)=>{hHandle(P);const R=[[9,11],[8,12],[8,13],[8,13],[9,12],[10,11]];R.forEach(([a,b],i)=>{for(let x=a;x<=b;x++)P(x,1+i,x===a?m[0]:x===b?m[2]:m[1]);});},
+  shovel:(g,P,m)=>{hHandle(P);const R=[[12,13],[11,14],[11,15],[11,15],[12,14]];R.forEach(([a,b],i)=>{for(let x=a;x<=b;x++)P(x,i,x===a?m[0]:x===b?m[2]:m[1]);});},
+  hammer:(g,P,m)=>{hHandle(P);for(let y=0;y<6;y++)for(let x=8;x<16;x++)P(x,y,y===0?m[0]:y===5?m[2]:m[1]);P(8,2,m[0]);P(15,3,m[2]);},
+  bow:(g,P)=>{g.strokeStyle=HHAND[0];g.lineWidth=2;g.beginPath();g.moveTo(11,1);g.quadraticCurveTo(15,8,5,14);g.stroke();g.strokeStyle='#eee';g.lineWidth=.8;g.beginPath();g.moveTo(11,1);g.lineTo(5,14);g.stroke();},
+  torch:(g,P)=>{for(let y=7;y<16;y++){P(7,y,HHAND[0]);P(8,y,HHAND[2]);}for(const[x,y,c] of[[7,2,'#ffd23a'],[8,2,'#ffd23a'],[6,3,'#ff9a1a'],[7,3,'#ffe066'],[8,3,'#ffe066'],[9,3,'#ff9a1a'],[6,4,'#ff7a1a'],[7,4,'#ffd23a'],[8,4,'#ffd23a'],[9,4,'#ff7a1a'],[7,5,'#ff6a1a'],[8,5,'#ff6a1a'],[7,6,'#c0501a'],[8,6,'#c0501a'],[7,1,'#ffb040']])P(x,y,c);}
+};
+function heldCube(g,P,col,k){let h=0;for(const ch of k)h=(h*31+ch.charCodeAt(0))>>>0;const sh=(a)=>{const n=parseInt(col.slice(1),16),f=a<0?0:255,t=Math.abs(a);const r=((n>>16)&255),gg=((n>>8)&255),b=n&255;return `rgb(${Math.round((f-r)*t+r)},${Math.round((f-gg)*t+gg)},${Math.round((f-b)*t+b)})`;};
+  g.globalAlpha=k==='glass_block'||k==='ice_block'?.75:1;for(let y=3;y<14;y++)for(let x=2;x<14;x++)P(x,y,y===3||x===2?sh(.25):y===13||x===13?sh(-.3):col);
+  for(let i=0;i<5;i++){h=(h*1103515245+12345)>>>0;P(3+(h>>8)%9,4+(h>>16)%8,sh(-.18));}g.globalAlpha=1;}
+const HCACHE=new Map();
+function outlineSprite(cv){const n=cv.width,o=document.createElement('canvas');o.width=o.height=n+2;const g=o.getContext('2d'),s2=document.createElement('canvas');s2.width=s2.height=n+2;const sg=s2.getContext('2d');
+  sg.drawImage(cv,1,1);sg.globalCompositeOperation='source-in';sg.fillStyle='rgba(10,12,18,.95)';sg.fillRect(0,0,n+2,n+2);for(const[a,b] of[[-1,0],[1,0],[0,-1],[0,1]])g.drawImage(s2,a,b);g.drawImage(cv,1,1);return o;}
+function heldSprite(k){
+  const v=INV[k];if(!v)return null;const ck=k+(v.pixels?'#'+v.pixels.length+(v.pixels[0]||[]).join():'');let r=HCACHE.get(ck);if(r)return r;
+  let cv=null,kind='item';
+  if(v.pixels){cv=pixCanvas(v.pixels,v.grid||16);kind=(v.placeable||v.kind==='item')?'item':'tool';}
+  else if(HKEY[k]||v.tool){const hk=HKEY[k]||[{sword:'sword',pick:'pick',axe:'axe',dig:'shovel',hammer:'hammer'}[v.tool],v.tool==='sword'?'iron':'stone'];if(HSHAPE[hk[0]]){cv=mkSprite((g,P)=>HSHAPE[hk[0]](g,P,HMAT[hk[1]]||HMAT.stone));kind='tool';}}
+  if(!cv&&k==='bow'){cv=mkSprite((g,P)=>HSHAPE.bow(g,P));kind='tool';}
+  if(!cv&&/torch|bougie|lantern/.test(k)){cv=mkSprite((g,P)=>HSHAPE.torch(g,P));}
+  if(!cv&&v.placeable){cv=mkSprite((g,P)=>heldCube(g,P,HBLK[k]||'#8e939c',k));}
+  if(!cv){cv=mkSprite(g=>{g.font='13px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(String(v.ic||'?').slice(0,2),8,9);});}
+  r={cv:outlineSprite(cv),kind,n:cv.width,pad:1};HCACHE.set(ck,r);return r;}
+function drawHeld(c,swim,lo){
+  if(swim)return;const k=AB[activeSlot];if(!k)return;const v=INV[k];if(!v||v.qty<=0)return;const r=heldSprite(k);if(!r)return;
+  const left=FX.fx<-.35,item=r.kind==='item',sz=item?10:19,u=sz/r.n,gx=item?.5:.12,gy=item?.82:.9,sw=FX.swingT>0?1-FX.swingT/10:-1;
+  c.save();c.translate(left?2.5:16.5,18.5-lo*.8);if(left)c.scale(-1,1);
+  let ang=item?0:-.3;if(sw>=0){if(item)c.translate(0,-Math.sin(sw*Math.PI)*3);else ang=-1.25+2.5*sw;}else if(!item)ang+=Math.sin(tick*.06)*.04;
+  c.rotate(ang);c.imageSmoothingEnabled=r.n>16;c.drawImage(r.cv,-(gx*r.n+r.pad)*u,-(gy*r.n+r.pad)*u,(r.n+2)*u,(r.n+2)*u);c.restore();}
+function icoHTML(v){return v.thumb?`<img class="spr-ic" src="${v.thumb}">`:v.ic;}
+
 // ══ INTERACTION v2 ══
 const ACT_LBL={chop:'Couper',mine:'Miner',mine_mountain:'Miner',mine_ore:'Miner',enter:'Entrer',exit:'Sortir',ascend:'Monter',mine_floor:'Descendre',break_placed:'Casser',interact_workbench_p:'Établi',interact_furnace_p:'Four',interact_chest_p:'Coffre',interact_door_p:'Porte'};
 const HOLD_OK=new Set(['chop','mine','mine_mountain','mine_ore','atk']);
 function rawTargets(ptx,pty,px2,py2){const out=[];for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const tx=ptx+dx,ty=pty+dy,cx=(tx+.5)*TILE,cy=(ty+.5)*TILE,d=Math.hypot(cx-px2,cy-py2)||1,dot=((cx-px2)*FX.fx+(cy-py2)*FX.fy)/d;out.push({tx,ty,s:d*(1.3-.55*dot)});}out.sort((a,b)=>a.s-b.s);return out;}
 function sortedTargets(ptx,pty,px2,py2){const o=rawTargets(ptx,pty,px2,py2),p=FX.tpick;if(p){const i=o.findIndex(c=>c.tx===p[0]&&c.ty===p[1]);if(i>0)o.unshift(o.splice(i,1)[0]);}return o;}
-function fxSwing(a){if(!HOLD_OK.has(a))return;FX.slashes=FX.slashes||[];FX.slashes.push({x:player.x+player.w/2,y:player.y+player.h/2,a:Math.atan2(FX.fy,FX.fx),life:10});}
-function fxSlashDraw(dt){const L=FX.slashes;if(!L||!L.length)return;ctx.lineCap='round';
+function fxSwing(a){if(a==='place'||a==='break_placed')FX.swingT=8;if(!HOLD_OK.has(a))return;FX.swingT=10;FX.slashes=FX.slashes||[];FX.slashes.push({x:player.x+player.w/2,y:player.y+player.h/2,a:Math.atan2(FX.fy,FX.fx),life:10});}
+function fxSlashDraw(dt){FX.swingT=Math.max(0,(FX.swingT||0)-dt);const L=FX.slashes;if(!L||!L.length)return;ctx.lineCap='round';
   for(let i=L.length-1;i>=0;i--){const q=L[i];q.life-=dt;if(q.life<=0){L.splice(i,1);continue;}const pr=1-q.life/10,e=q.a-.95+1.9*Math.min(1,pr*1.5);
     ctx.globalAlpha=q.life/10*.85;ctx.strokeStyle='#fff';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(q.x,q.y,TILE*.7,q.a-.95,e);ctx.stroke();
     ctx.strokeStyle='rgba(255,230,140,.8)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,TILE*.58,q.a-.8,e-.15);ctx.stroke();}
@@ -5505,7 +5561,7 @@ function edRenderSaved(){
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:3px;';
     div.innerHTML = `
-      <div style="font-size:32px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:rgba(4,14,22,.6);border:1px solid rgba(0,180,120,.2);border-radius:6px;">${s.icon}</div>
+      <div style="font-size:32px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:rgba(4,14,22,.6);border:1px solid rgba(0,180,120,.2);border-radius:6px;">${s.thumb?`<img src="${s.thumb}" style="width:44px;height:44px;image-rendering:pixelated">`:s.icon}</div>
       <span style="font-size:9px;color:rgba(0,200,140,.7);text-align:center;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}</span>
       <div style="display:flex;gap:3px;">
         <button style="font-size:9px;padding:2px 5px;background:rgba(0,80,200,.4);border:1px solid rgba(80,140,255,.25);border-radius:3px;color:rgba(140,180,255,.9);cursor:pointer;" onclick="edLoad('${s.id}')">📋</button>
@@ -5521,6 +5577,7 @@ function edLoad(id){
   try{ saved = JSON.parse(localStorage.getItem('rpg_editor')||'[]'); }catch(e){}
   const s = saved.find(x=>x.id===id);
   if(!s) return;
+  if(s.pixels){edLoadDraw(s);return;}
   edCategory = s.category;
   edModelKey = s.modelKey;
   edIngredients = s.ingredients.map(i=>({...i}));
@@ -5543,6 +5600,7 @@ function edAddSaved(id){
   try{ saved = JSON.parse(localStorage.getItem('rpg_editor')||'[]'); }catch(e){}
   const s = saved.find(x=>x.id===id);
   if(!s) return;
+  if(s.pixels){edRegisterDraw(s,true);popup(`✅ "${s.name}" ajouté`);return;}
   // Charger puis ajouter
   edLoad(id);
   setTimeout(()=>edAddToWorld(), 100);
@@ -5655,26 +5713,34 @@ function edImportImg(input){
 }
 
 // Sauvegarder le dessin comme bloc custom
+function edKindChange(){const k=document.getElementById('edt-kind').value,w=document.getElementById('edt-pow-wrap');if(w)w.style.display=(k==='block'||k==='item')?'none':'';}
+function edTemplate(kind){
+  if(edDrawPixels.some(p=>p[3]>0)&&!confirm('Remplacer le dessin par un modèle ?'))return;
+  const mat={sword:'iron',pick:'stone',axe:'stone',shovel:'iron',hammer:'iron'}[kind]||'stone';
+  const cv=mkSprite((g,P)=>HSHAPE[kind](g,P,HMAT[mat])),d=cv.getContext('2d').getImageData(0,0,16,16).data;
+  edDrawGrid=16;edDrawPixels=[];for(let i=0;i<256;i++)edDrawPixels.push([d[i*4],d[i*4+1],d[i*4+2],d[i*4+3]]);edDrawHistory=[];
+  const k=document.getElementById('edt-kind');if(k){k.value=kind==='shovel'?'dig':kind;edKindChange();}
+  edDrawRender();}
+function edRegisterDraw(r,give){
+  const k=r.kind||'block',base={nm:r.name,thumb:r.thumb,grid:r.grid,pixels:r.pixels,custom:true,kind:k};let e;
+  if(k==='block')e={...base,ic:'🧱',qty:0,placeable:true,customDraw:true};
+  else if(k==='item')e={...base,ic:'✋',qty:0};
+  else e={...base,ic:{sword:'🗡',pick:'⛏',axe:'🪓',dig:'🥄',hammer:'🔨'}[k]||'🛠',qty:0,tool:k};
+  if(k==='sword')e.dmg=r.pow||6;else if(k!=='block'&&k!=='item')e.mul=Math.max(1,Math.round((r.pow||6)/2));
+  const q=INV[r.id]?INV[r.id].qty:0;INV[r.id]=e;INV[r.id].qty=q+(give?(k==='block'?3:1):0);}
+function edRegisterAll(){let sv=[];try{sv=JSON.parse(localStorage.getItem('rpg_editor')||'[]');}catch(e){}sv.forEach(r=>{if(r&&r.pixels)edRegisterDraw(r,false);});}
+function edLoadDraw(r){const b=document.getElementById('ed-cat-draw');if(b)edCat('draw',b);edDrawGrid=r.grid||16;edDrawPixels=r.pixels.map(p=>[...p]);edDrawHistory=[];
+  const k=document.getElementById('edt-kind');if(k)k.value=r.kind||'block';const pw=document.getElementById('edt-pow');if(pw)pw.value=r.pow||6;const nm=document.getElementById('edt-name');if(nm)nm.value=r.name||'';edKindChange();edDrawRender();}
 function edSaveDrawing(){
-  if(edDrawPixels.every(p=>p[3]===0)){popup('❌ Dessine quelque chose !');return;}
-  const name=(document.getElementById('ed-name')&&document.getElementById('ed-name').value||'Dessin').trim()||'Dessin';
-  const cv=document.createElement('canvas');cv.width=48;cv.height=48;
-  const cx=cv.getContext('2d');cx.imageSmoothingEnabled=false;
-  const ps=48/edDrawGrid;
-  for(let y=0;y<edDrawGrid;y++)for(let x=0;x<edDrawGrid;x++){
-    const p=edDrawPixels[y*edDrawGrid+x];
-    if(p&&p[3]>0){cx.fillStyle=`rgba(${p[0]},${p[1]},${p[2]},${p[3]/255})`;cx.fillRect(x*ps,y*ps,ps,ps);}
-  }
-  const thumb=cv.toDataURL();
-  const id='draw_'+Date.now();
+  if(edDrawPixels.every(p=>p[3]===0)){popup('✏ Dessine quelque chose !');return;}
+  const name=((document.getElementById('edt-name')||{}).value||'').trim()||'Dessin',kind=document.getElementById('edt-kind').value,pow=Math.max(1,Math.min(20,+(document.getElementById('edt-pow')||{}).value||6));
+  const cv=document.createElement('canvas');cv.width=48;cv.height=48;const cx=cv.getContext('2d');cx.imageSmoothingEnabled=false;const ps=48/edDrawGrid;
+  for(let y=0;y<edDrawGrid;y++)for(let x=0;x<edDrawGrid;x++){const p=edDrawPixels[y*edDrawGrid+x];if(p&&p[3]>0){cx.fillStyle=`rgba(${p[0]},${p[1]},${p[2]},${p[3]/255})`;cx.fillRect(x*ps,y*ps,ps,ps);}}
+  const thumb=cv.toDataURL(),id='draw_'+Date.now(),rec={id,name,icon:'🎨',category:'draw',thumb,grid:edDrawGrid,pixels:edDrawPixels.map(p=>[...p]),kind,pow};
   let saved=[];try{saved=JSON.parse(localStorage.getItem('rpg_editor')||'[]');}catch(e){}
-  saved.unshift({id,name,icon:'🎨',category:'draw',thumb,grid:edDrawGrid,pixels:edDrawPixels.map(p=>[...p])});
-  if(saved.length>50)saved=saved.slice(0,50);
-  localStorage.setItem('rpg_editor',JSON.stringify(saved));
-  // Ajouter à l'INV comme bloc posable
-  INV[id]={ic:'🎨',nm:name,qty:3,placeable:true,customDraw:true,grid:edDrawGrid,pixels:edDrawPixels.map(p=>[...p]),thumb};
-  popup(`✅ "${name}" ajouté à l'inventaire !`);
-  edRenderSaved();
+  saved.unshift(rec);if(saved.length>50)saved=saved.slice(0,50);
+  try{localStorage.setItem('rpg_editor',JSON.stringify(saved));}catch(e){popup('❌ Stockage plein');}
+  edRegisterDraw(rec,true);popup(`✅ "${name}" ajouté à l'inventaire !`);edRenderSaved();
 }
 
 // Touch/mouse pour ed-canvas
@@ -5698,6 +5764,7 @@ function edSaveDrawing(){
 })();
 
 function openBlockCreator(){ openEditor(); }
+try{edRegisterAll();}catch(e){}
 
 </script>
 </body>
