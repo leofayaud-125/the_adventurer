@@ -17,7 +17,7 @@ jobs:
       - name: Keystore
         run: |
           if [ ! -f release.jks ]; then
-            keytool -genkeypair -keystore release.jks -alias key -keyalg RSA -keysize 2048 -validity 10000 -storepass android123 -keypass android123 -dname "CN=The Adventurer"
+            keytool -genkeypair -keystore release.jks -alias key -keyalg RSA -keysize 2048 -validity 10000 -storepass android123 -keypass android123 -dname "CN=The adventurer"
             git config user.name bot
             git config user.email bot@users.noreply.github.com
             git add release.jks
