@@ -1,4 +1,4 @@
-The adventurer — projet Android (WebView)
+The Adventurer — projet Android (WebView)
 
 Option A — Android Studio
 1. Ouvre ce dossier dans Android Studio.
