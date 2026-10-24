@@ -1,13 +1,13 @@
 plugins { id 'com.android.application' }
 android {
-    namespace 'com.the.adventurer'
+    namespace 'com.leocat.theadventurer'
     compileSdk 34
     defaultConfig {
-        applicationId 'com.the.adventurer'
+        applicationId 'com.leocat.theadventurer'
         minSdk 21
         targetSdk 34
         versionCode 1
-        versionName '4.5'
+        versionName '1.0'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     lint { checkReleaseBuilds false; abortOnError false }
